@@ -21,16 +21,15 @@ class EvalResult:
 
 class IELTSWritingEvaluator:
     def __init__(self, rubric_docs: List[str]):
-        # -------- RAG Embeddings --------
+        # ---- RAG Embeddings ----
         self.embedder = SentenceTransformer("all-MiniLM-L6-v2")
         self.rubric_docs = rubric_docs
         self.index = self._build_index(rubric_docs)
 
-        # -------- Codespaces-safe LLM --------
+        # ---- Codespaces-safe LLM ----
         self.model_name = "Qwen/Qwen2.5-3B-Instruct"
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
             device_map="auto",
@@ -91,6 +90,6 @@ Essay:
         try:
             data = json.loads(raw)
         except Exception:
-            raise ValueError(f"Invalid JSON from model:\\n{raw}")
+            raise ValueError(f"Model returned invalid JSON:\n{raw}")
 
         return EvalResult(**data)
