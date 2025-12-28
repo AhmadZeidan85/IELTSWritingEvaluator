@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 
-MCP_ENDPOINT = "http://localhost:3333/tools/evaluate_writing"
+MCP_ENDPOINT = "http://127.0.0.1:3333/tools/evaluate_writing"
 
 st.set_page_config(page_title="IELTS Writing Evaluator")
 st.title("📝 IELTS Writing Evaluator (MCP + RAG)")
