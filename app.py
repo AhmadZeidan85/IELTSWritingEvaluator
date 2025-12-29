@@ -1,39 +1,33 @@
+
+import os
 import streamlit as st
 import requests
+import json
 
-MCP_ENDPOINT = "http://localhost:3333/tools/evaluate_writing"
-
-st.set_page_config(page_title="IELTS Writing Evaluator")
-st.title("📝 IELTS Writing Evaluator (MCP + RAG)")
-
-essay = st.text_area(
-    "Paste your IELTS essay below:",
-    height=300,
-    placeholder="Write your Task 1 or Task 2 essay..."
+# Use Codespaces forwarded public URL if available
+MCP_URL = os.getenv(
+    "MCP_URL",
+    "https://fictional-journey-4v9r9xp4wxw3jrj6-3333.app.github.dev/tools/evaluate_writing"
 )
 
+st.set_page_config(page_title="IELTS Task 1 Evaluator")
+st.title("📝 IELTS Task 1 Writing Evaluator (Mistral API)")
+
+essay = st.text_area("Paste your Task 1 response", height=300)
+
 if st.button("Evaluate"):
-    if not essay.strip():
-        st.warning("Please enter an essay.")
-    else:
+    with st.spinner("Sending request to MCP server..."):
+        # Prepare the request payload
         payload = {"essay": essay}
+        st.subheader("📤 Request JSON:")
+        st.json(payload)  # Display request being sent
 
-        with st.spinner("Evaluating..."):
-            response = requests.post(MCP_ENDPOINT, json=payload)
-
-        if response.status_code != 200:
-            st.error("Error calling MCP server")
-            st.text(response.text)
-        else:
-            result = response.json()
-
-            st.success(f"Overall Band: {result['band']}")
-
-            st.subheader("Sub-scores")
-            st.write("Task Achievement:", result["task_achievement"])
-            st.write("Coherence & Cohesion:", result["coherence"])
-            st.write("Lexical Resource:", result["lexical"])
-            st.write("Grammar:", result["grammar"])
-
-            st.subheader("Examiner Feedback")
-            st.write(result["feedback"])
+        try:
+            r = requests.post(MCP_URL, json=payload, timeout=120)
+            if r.status_code == 200:
+                st.subheader("📥 Response JSON:")
+                st.json(r.json())  # Display the result from MCP server
+            else:
+                st.error(f"Server returned status {r.status_code}: {r.text}")
+        except Exception as e:
+            st.error(f"Failed to connect to MCP server: {e}")

@@ -1,5 +1,8 @@
+import os
 from mcp_tool import mcp
 
 if __name__ == "__main__":
-    # FastMCP default URL: http://localhost:3333
-    mcp.run()
+    # Detect Codespace forwarded URL
+    codespace_port = os.getenv("PORT", "3333")
+    print(f"🚀 Starting MCP server on port {codespace_port}...")
+    mcp.run()  # Do not add host/port arguments

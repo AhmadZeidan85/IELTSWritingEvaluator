@@ -1,95 +1,41 @@
-from typing import List
-from dataclasses import dataclass
+import os
 import json
-import numpy as np
-import faiss
-import torch
+import requests
 
-from sentence_transformers import SentenceTransformer
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+class IELTSWritingAgent:
+    def __init__(self):
+        self.api_key = os.getenv("MISTRAL_API_KEY","ybMAvProEnsVMuNV1Kw10L9G7pmjDhXR")
+        if not self.api_key:
+            print("⚠️ MISTRAL_API_KEY is not set. MCP will start, but evaluation will return error.")
+        self.endpoint = "https://api.mistral.ai/v1/chat/completions"
+        self.model = "mistral-small"
 
+        self.descriptors = """
+IELTS Writing Task 1 Band Descriptors:
+- Task Achievement
+- Coherence & Cohesion
+- Lexical Resource
+- Grammar
+"""
 
-@dataclass
-class EvalResult:
-    band: float
-    task_achievement: float
-    coherence: float
-    lexical: float
-    grammar: float
-    feedback: str
-
-
-class IELTSWritingEvaluator:
-    def __init__(self, rubric_docs: List[str]):
-        # ---- RAG Embeddings ----
-        self.embedder = SentenceTransformer("all-MiniLM-L6-v2")
-        self.rubric_docs = rubric_docs
-        self.index = self._build_index(rubric_docs)
-
-        # ---- Codespaces-safe LLM ----
-        self.model_name = "Qwen/Qwen2.5-3B-Instruct"
-
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_name,
-            device_map="auto",
-            torch_dtype=torch.float16
-        )
-
-        self.generator = pipeline(
-            "text-generation",
-            model=self.model,
-            tokenizer=self.tokenizer
-        )
-
-    def _build_index(self, docs: List[str]):
-        vectors = self.embedder.encode(docs)
-        index = faiss.IndexFlatL2(vectors.shape[1])
-        index.add(np.array(vectors))
-        return index
-
-    def retrieve(self, essay: str, k: int = 3) -> List[str]:
-        q_vec = self.embedder.encode([essay])
-        _, ids = self.index.search(np.array(q_vec), k)
-        return [self.rubric_docs[i] for i in ids[0]]
-
-    def evaluate(self, essay: str) -> EvalResult:
-        context = self.retrieve(essay)
+    def evaluate(self, essay: str) -> dict:
+        if not self.api_key:
+            return {"error": "MISTRAL_API_KEY is not set"}
 
         prompt = f"""
-You are an official IELTS Writing examiner.
-
-Evaluate the essay using the rubric context below.
-
-Return STRICT JSON ONLY in this format:
-{{
-  "band": number,
-  "task_achievement": number,
-  "coherence": number,
-  "lexical": number,
-  "grammar": number,
-  "feedback": string
-}}
-
-Rubric Context:
-{context}
+Evaluate this IELTS Task 1 response.
+Return JSON only.
 
 Essay:
 {essay}
 """
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        payload = {"model": self.model, "messages":[{"role":"user","content":prompt}],"temperature":0.3}
 
-        output = self.generator(
-            prompt,
-            max_new_tokens=512,
-            do_sample=False,
-            temperature=0.0
-        )
-
-        raw = output[0]["generated_text"].replace(prompt, "").strip()
-
-        try:
-            data = json.loads(raw)
-        except Exception:
-            raise ValueError(f"Model returned invalid JSON:\n{raw}")
-
-        return EvalResult(**data)
+        r = requests.post(self.endpoint, headers=headers, json=payload, timeout=60)
+        r.raise_for_status()
+        content = r.json()["choices"][0]["message"]["content"]
+        print(f"[DEBUG] Received content: {content}")
+        json_text = content[content.find("{"):content.rfind("}")+1]
+        print(f"[DEBUG] Received content: {json_text}")
+        return json.loads(json_text)

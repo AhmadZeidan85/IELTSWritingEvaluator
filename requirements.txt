@@ -6,3 +6,5 @@ faiss-cpu
 fastmcp
 mcp
 streamlit
+requests
+python-dotenv
